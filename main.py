@@ -8,8 +8,8 @@ import requests
 SYMBOLS = ['XAUUSD', 'XAGUSD', 'BTCUSDT']
 TIMEFRAMES = ['15m', '1h', '4h']
 
-TELEGRAM_TOKEN = '8961298923:AAFbuiQm0peaGQ4gssD34G0shYeBjk2RaN8'
-TELEGRAM_CHAT_ID = '111954131'
+TELEGRAM_TOKEN = 'YOUR_BOT_TOKEN_HERE'
+TELEGRAM_CHAT_ID = 'YOUR_CHAT_ID_HERE'
 
 # ================== ارسال تلگرام ==================
 def send_telegram(message):
@@ -20,7 +20,12 @@ def send_telegram(message):
     except:
         pass
 
-# ================== تشخیص QM ==================
+# پیام شروع
+send_telegram("✅ <b>رصد بازار شروع شد</b>\nنمادها: طلا، نقره، بیت‌کوین\nتایم‌فریم‌ها: 15m, 1h, 4h\n\nسیگنال QM و SNR فعال است...")
+
+print("Bot Started - رصد بازار فعال شد")
+
+# ================== تشخیص QM و SNR (همون قبلی) ==================
 def detect_qm(df, symbol, tf):
     if len(df) < 40: return False
     h = df['high'].values
@@ -28,21 +33,18 @@ def detect_qm(df, symbol, tf):
     c = df['close'].iloc[-1]
     
     for i in range(8, len(df)-10):
-        # Bearish QM
         if h[i+2] > h[i] and l[i+5] < l[i+1] and h[i] > h[i-4]:
-            msg = f"<b>🚨 Bearish QM</b>\nSymbol: {symbol}\nTF: {tf}\nPrice: {c:.2f}\nTime: {datetime.now().strftime('%H:%M')}"
+            msg = f"<b>🚨 Bearish QM</b>\nSymbol: {symbol}\nTF: {tf}\nPrice: {c:.2f}"
             send_telegram(msg)
             print(msg)
             return True
-        # Bullish QM
         if l[i+2] < l[i] and h[i+5] > h[i+1] and l[i] < l[i-4]:
-            msg = f"<b>🚨 Bullish QM</b>\nSymbol: {symbol}\nTF: {tf}\nPrice: {c:.2f}\nTime: {datetime.now().strftime('%H:%M')}"
+            msg = f"<b>🚨 Bullish QM</b>\nSymbol: {symbol}\nTF: {tf}\nPrice: {c:.2f}"
             send_telegram(msg)
             print(msg)
             return True
     return False
 
-# ================== تشخیص SNR ==================
 def detect_snr(df, symbol, tf):
     if len(df) < 30: return False
     recent_high = df['high'].rolling(20).max().iloc[-1]
@@ -62,8 +64,6 @@ def detect_snr(df, symbol, tf):
 # ================== لوپ اصلی ==================
 exchange = ccxt.bybit()
 
-print("Multi Symbol Bot Started...")
-
 while True:
     for symbol in SYMBOLS:
         for tf in TIMEFRAMES:
@@ -74,6 +74,8 @@ while True:
                 
                 detect_qm(df, symbol, tf)
                 detect_snr(df, symbol, tf)
+                
             except:
                 pass
-    time.sleep(120)
+    
+    time.sleep(120)  # هر ۲ دقیقه
