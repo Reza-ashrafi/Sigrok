@@ -6,60 +6,63 @@ import requests
 
 # ================== تنظیمات ==================
 SYMBOLS = ['XAUUSD', 'XAGUSD', 'BTCUSDT']
-TIMEFRAMES = ['15m', '1h', '4h']
+TIMEFRAMES = ['5m', '15m', '1h', '4h']
 
 TELEGRAM_TOKEN = '8961298923:AAFbuiQm0peaGQ4gssD34G0shYeBjk2RaN8'
 TELEGRAM_CHAT_ID = '111954131'
 
-# ================== ارسال تلگرام ==================
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"}
-    try:
-        requests.post(url, json=payload)
-    except:
-        pass
+    requests.post(url, json=payload)
 
 # پیام شروع
-send_telegram("✅ <b>رصد بازار شروع شد</b>\nنمادها: طلا، نقره، بیت‌کوین\nتایم‌فریم: 15m, 1h, 4h\nربات فعال است...")
+send_telegram("✅ <b>رصد بازار به سبک نورا شروع شد</b>\nنمادها: طلا، نقره، بیت‌کوین\nتایم‌فریم: 5m,15m,1h,4h")
 
-print("Bot Started - پیام شروع ارسال شد")
-
-# ================== بقیه کد (QM + SNR) ==================
 exchange = ccxt.bybit()
 
 while True:
     for symbol in SYMBOLS:
         for tf in TIMEFRAMES:
             try:
-                ohlcv = exchange.fetch_ohlcv(symbol, tf, limit=150)
-                df = pd.DataFrame(ohlcv, columns=['timestamp','open','high','low','close','volume'])
-                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+                ohlcv = exchange.fetch_ohlcv(symbol, tf, limit=100)
+                df = pd.DataFrame(ohlcv, columns=['ts','open','high','low','close','vol'])
+                df['ts'] = pd.to_datetime(df['ts'], unit='ms')
+                c = df['close'].iloc[-1]
                 
-                # QM Detection (ساده)
-                if len(df) > 40:
+                # Double Marubozu Detection (DMD)
+                is_bull_dmd = (df['close'].iloc[-1] > df['open'].iloc[-1] and 
+                               df['close'].iloc[-2] > df['open'].iloc[-2] and 
+                               df['close'].iloc[-1] > df['open'].iloc[-1] * 1.001)
+                is_bear_dmd = (df['close'].iloc[-1] < df['open'].iloc[-1] and 
+                               df['close'].iloc[-2] < df['open'].iloc[-2] and 
+                               df['close'].iloc[-1] < df['open'].iloc[-1] * 0.999)
+                
+                direction = "صعودی 🟢" if is_bull_dmd else "نزولی 🔴" if is_bear_dmd else "خنثی"
+                
+                # QM ساده
+                if len(df) > 30:
                     h = df['high'].values
                     l = df['low'].values
-                    c = df['close'].iloc[-1]
-                    for i in range(8, len(df)-10):
-                        if h[i+2] > h[i] and l[i+5] < l[i+1] and h[i] > h[i-4]:
-                            msg = f"<b>🚨 Bearish QM</b>\nSymbol: {symbol}\nTF: {tf}\nPrice: {c:.2f}"
+                    for i in range(5, len(df)-8):
+                        if h[i+2] > h[i] and l[i+5] < l[i+1]:
+                            msg = f"<b>🚨 Bearish QM</b>\nنماد: {symbol}\nتایم‌فریم: {tf}\nجهت: {direction}\nقیمت: {c:.2f}"
+                            if is_bull_dmd: msg += "\n⚠️ Double Marubozu صعودی وجود دارد"
                             send_telegram(msg)
-                        if l[i+2] < l[i] and h[i+5] > h[i+1] and l[i] < l[i-4]:
-                            msg = f"<b>🚨 Bullish QM</b>\nSymbol: {symbol}\nTF: {tf}\nPrice: {c:.2f}"
+                        if l[i+2] < l[i] and h[i+5] > h[i+1]:
+                            msg = f"<b>🚨 Bullish QM</b>\nنماد: {symbol}\nتایم‌فریم: {tf}\nجهت: {direction}\nقیمت: {c:.2f}"
+                            if is_bear_dmd: msg += "\n⚠️ Double Marubozu نزولی وجود دارد"
                             send_telegram(msg)
                 
-                # SNR Detection
-                if len(df) > 30:
-                    recent_high = df['high'].rolling(20).max().iloc[-1]
-                    recent_low  = df['low'].rolling(20).min().iloc[-1]
-                    price = df['close'].iloc[-1]
-                    if abs(price - recent_high) / recent_high < 0.002:
-                        send_telegram(f"<b>🔴 Near Resistance</b>\nSymbol: {symbol}\nPrice: {price:.2f}\nTF: {tf}")
-                    elif abs(price - recent_low) / recent_low < 0.002:
-                        send_telegram(f"<b>🟢 Near Support</b>\nSymbol: {symbol}\nPrice: {price:.2f}\nTF: {tf}")
-                        
+                # Danger Zone ساده (نزدیک highs/lows قوی)
+                recent_high = df['high'].rolling(20).max().iloc[-1]
+                recent_low = df['low'].rolling(20).min().iloc[-1]
+                if abs(c - recent_high)/recent_high < 0.0015:
+                    send_telegram(f"⚠️ <b>Danger Zone (Resistance)</b>\nنماد: {symbol}\nTF: {tf}\nقیمت نزدیک Resistance قوی")
+                if abs(c - recent_low)/recent_low < 0.0015:
+                    send_telegram(f"⚠️ <b>Danger Zone (Support)</b>\nنماد: {symbol}\nTF: {tf}\nقیمت نزدیک Support قوی")
+                    
             except:
                 pass
     
-    time.sleep(120)
+    time.sleep(90)  # چک سریع‌تر
