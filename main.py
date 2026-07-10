@@ -5,14 +5,13 @@ from datetime import datetime
 import requests
 
 # ================== تنظیمات ==================
-SYMBOLS = ['XAUUSD', 'XAGUSD', 'BTCUSDT']   # طلا، نقره، بیت‌کوین
+SYMBOLS = ['XAUUSD', 'XAGUSD', 'BTCUSDT']
 TIMEFRAMES = ['15m', '1h', '4h']
 
-# تلگرام
 TELEGRAM_TOKEN = '8961298923:AAFbuiQm0peaGQ4gssD34G0shYeBjk2RaN8'
 TELEGRAM_CHAT_ID = '111954131'
 
-# ================== ارسال پیام ==================
+# ================== ارسال تلگرام ==================
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"}
@@ -35,7 +34,6 @@ def detect_qm(df, symbol, tf):
             send_telegram(msg)
             print(msg)
             return True
-        
         # Bullish QM
         if l[i+2] < l[i] and h[i+5] > h[i+1] and l[i] < l[i-4]:
             msg = f"<b>🚨 Bullish QM</b>\nSymbol: {symbol}\nTF: {tf}\nPrice: {c:.2f}\nTime: {datetime.now().strftime('%H:%M')}"
@@ -62,9 +60,9 @@ def detect_snr(df, symbol, tf):
     return False
 
 # ================== لوپ اصلی ==================
-exchange = ccxt.bybit()   # برای طلا و نقره و بیت‌کوین عالیه
+exchange = ccxt.bybit()
 
-print("Multi Symbol QM + SNR Bot Started...")
+print("Multi Symbol Bot Started...")
 
 while True:
     for symbol in SYMBOLS:
@@ -76,9 +74,6 @@ while True:
                 
                 detect_qm(df, symbol, tf)
                 detect_snr(df, symbol, tf)
-                
-            except Exception as e:
-                #print(f"Error {symbol} {tf}: {e}")
+            except:
                 pass
-    
-    time.sleep(120)  # هر ۲ دقیقه یک دور کامل
+    time.sleep(120)
